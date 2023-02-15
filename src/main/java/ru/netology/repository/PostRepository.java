@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 
 @Repository
 public class PostRepository {
@@ -16,13 +17,20 @@ public class PostRepository {
     private AtomicLong countPosts = new AtomicLong(1);
 
     public List<Post> all() {
-        return posts;
+        return posts.stream()
+                .filter(post -> !post.isReadyToRemoved())
+                .collect(Collectors.toList());
     }
 
     public Optional<Post> getById(long id) {
-        return posts.stream()
-                .filter(post -> id == post.getId())
+        Optional<Post> postOptional = posts.stream()
+                .filter(post -> id == post.getId() && !post.isReadyToRemoved())
                 .findAny();
+        if (postOptional.isPresent()){
+            return postOptional;
+        } else {
+            throw new NotFoundException();
+        }
     }
     public Post save(Post post) {
         if (post.getId()==0){
@@ -39,7 +47,7 @@ public class PostRepository {
                 }
             }
             for(Post post1 : posts){
-                if (post1.getId()==post.getId()){
+                if (post1.getId()==post.getId() && !post1.isReadyToRemoved()){
                     post1.setContent(post.getContent());
                     return post1;
                 } else {
@@ -55,6 +63,9 @@ public class PostRepository {
     }
 
     public void removeById(long id) {
-        posts.removeIf(post -> post.getId()==id);
+        posts.stream()
+                .filter(post -> post.getId()==id)
+                .findFirst()
+                .ifPresent(post -> post.setReadyToRemoved(true));
     }
 }
